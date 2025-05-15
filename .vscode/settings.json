@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "random": "c",
+        "ctype.h": "c",
+        "assert.h": "c",
+        "errno.h": "c",
+        "stdnoreturn.h": "c",
+        "stdbool.h": "c",
+        "string.h": "c",
+        "strings.h": "c"
+    }
+}

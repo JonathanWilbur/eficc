@@ -1,0 +1,6 @@
+*.S
+*.out
+*.exe
+*.so
+*.o
+eficc
