@@ -28,15 +28,10 @@ SOFTWARE.
 
 */
 
-// TODO: You can probably clean up the infdefs for the headers copied below.
-
-#define _POSIX_C_SOURCE 200809L
-
+// TODO: The rest of these headers can only be eliminated once you transition this to work on EFI only.
 #ifndef NOLIBC
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdalign.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -44,175 +39,8 @@ SOFTWARE.
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h> // One call to stat() that will be removed once we break away from the OS
-#include <time.h>
 #include <unistd.h>
 #else
-
-#ifndef __STDFLOAT_H
-#define __STDFLOAT_H
-
-#define DECIMAL_DIG 21
-#define FLT_EVAL_METHOD 0  // C11 5.2.4.2.2p9
-#define FLT_RADIX 2
-#define FLT_ROUNDS 1  // C11 5.2.4.2.2p8: to nearest
-
-#define FLT_DIG 6
-#define FLT_EPSILON 0x1p-23
-#define FLT_MANT_DIG 24
-#define FLT_MAX 0x1.fffffep+127
-#define FLT_MAX_10_EXP 38
-#define FLT_MAX_EXP 128
-#define FLT_MIN 0x1p-126
-#define FLT_MIN_10_EXP -37
-#define FLT_MIN_EXP -125
-#define FLT_TRUE_MIN 0x1p-149
-
-#define DBL_DIG 15
-#define DBL_EPSILON 0x1p-52
-#define DBL_MANT_DIG 53
-#define DBL_MAX 0x1.fffffffffffffp+1023
-#define DBL_MAX_10_EXP 308
-#define DBL_MAX_EXP 1024
-#define DBL_MIN 0x1p-1022
-#define DBL_MIN_10_EXP -307
-#define DBL_MIN_EXP -1021
-#define DBL_TRUE_MIN 0x0.0000000000001p-1022
-
-#define LDBL_DIG 15
-#define LDBL_EPSILON 0x1p-52
-#define LDBL_MANT_DIG 53
-#define LDBL_MAX 0x1.fffffffffffffp+1023
-#define LDBL_MAX_10_EXP 308
-#define LDBL_MAX_EXP 1024
-#define LDBL_MIN 0x1p-1022
-#define LDBL_MIN_10_EXP -307
-#define LDBL_MIN_EXP -1021
-#define LDBL_TRUE_MIN 0x0.0000000000001p-1022
-
-#endif
-
-#ifndef __STDALIGN_H
-#define __STDALIGN_H
-
-#define alignas _Alignas
-#define alignof _Alignof
-#define __alignas_is_defined 1
-#define __alignof_is_defined 1
-
-#endif
-
-#ifndef __STDATOMIC_H
-#define __STDATOMIC_H
-
-#define ATOMIC_BOOL_LOCK_FREE 1
-#define ATOMIC_CHAR_LOCK_FREE 1
-#define ATOMIC_CHAR16_T_LOCK_FREE 1
-#define ATOMIC_CHAR32_T_LOCK_FREE 1
-#define ATOMIC_WCHAR_T_LOCK_FREE 1
-#define ATOMIC_SHORT_LOCK_FREE 1
-#define ATOMIC_INT_LOCK_FREE 1
-#define ATOMIC_LONG_LOCK_FREE 1
-#define ATOMIC_LLONG_LOCK_FREE 1
-#define ATOMIC_POINTER_LOCK_FREE 1
-
-typedef enum {
-    memory_order_relaxed,
-    memory_order_consume,
-    memory_order_acquire,
-    memory_order_release,
-    memory_order_acq_rel,
-    memory_order_seq_cst,
-} memory_order;
-
-#define ATOMIC_FLAG_INIT(x) (x)
-#define atomic_init(addr, val) (*(addr) = (val))
-#define kill_dependency(x) (x)
-#define atomic_thread_fence(order)
-#define atomic_signal_fence(order)
-#define atomic_is_lock_free(x) 1
-
-#define atomic_load(addr) (*(addr))
-#define atomic_store(addr, val) (*(addr) = (val))
-
-#define atomic_load_explicit(addr, order) (*(addr))
-#define atomic_store_explicit(addr, val, order) (*(addr) = (val))
-
-#define atomic_fetch_add(obj, val) (*(obj) += (val))
-#define atomic_fetch_sub(obj, val) (*(obj) -= (val))
-#define atomic_fetch_or(obj, val) (*(obj) |= (val))
-#define atomic_fetch_xor(obj, val) (*(obj) ^= (val))
-#define atomic_fetch_and(obj, val) (*(obj) &= (val))
-
-#define atomic_fetch_add_explicit(obj, val, order) (*(obj) += (val))
-#define atomic_fetch_sub_explicit(obj, val, order) (*(obj) -= (val))
-#define atomic_fetch_or_explicit(obj, val, order) (*(obj) |= (val))
-#define atomic_fetch_xor_explicit(obj, val, order) (*(obj) ^= (val))
-#define atomic_fetch_and_explicit(obj, val, order) (*(obj) &= (val))
-
-#define atomic_compare_exchange_weak(p, old, new) \
-    __builtin_compare_and_swap((p), (old), (new))
-
-#define atomic_compare_exchange_strong(p, old, new) \
-    __builtin_compare_and_swap((p), (old), (new))
-
-#define atomic_exchange(obj, val) __builtin_atomic_exchange((obj), (val))
-#define atomic_exchange_explicit(obj, val, order) __builtin_atomic_exchange((obj), (val))
-
-#define atomic_flag_test_and_set(obj) atomic_exchange((obj), 1)
-#define atomic_flag_test_and_set_explicit(obj, order) atomic_exchange((obj), 1)
-#define atomic_flag_clear(obj) (*(obj) = 0)
-#define atomic_flag_clear_explicit(obj, order) (*(obj) = 0)
-
-typedef _Atomic _Bool atomic_flag;
-typedef _Atomic _Bool atomic_bool;
-typedef _Atomic char atomic_char;
-typedef _Atomic signed char atomic_schar;
-typedef _Atomic unsigned char atomic_uchar;
-typedef _Atomic short atomic_short;
-typedef _Atomic unsigned short atomic_ushort;
-typedef _Atomic int atomic_int;
-typedef _Atomic unsigned int atomic_uint;
-typedef _Atomic long atomic_long;
-typedef _Atomic unsigned long atomic_ulong;
-typedef _Atomic long long atomic_llong;
-typedef _Atomic unsigned long long atomic_ullong;
-typedef _Atomic unsigned short atomic_char16_t;
-typedef _Atomic unsigned atomic_char32_t;
-typedef _Atomic unsigned atomic_wchar_t;
-typedef _Atomic signed char atomic_int_least8_t;
-typedef _Atomic unsigned char atomic_uint_least8_t;
-typedef _Atomic short atomic_int_least16_t;
-typedef _Atomic unsigned short atomic_uint_least16_t;
-typedef _Atomic int atomic_int_least32_t;
-typedef _Atomic unsigned int atomic_uint_least32_t;
-typedef _Atomic long atomic_int_least64_t;
-typedef _Atomic unsigned long atomic_uint_least64_t;
-typedef _Atomic signed char atomic_int_fast8_t;
-typedef _Atomic unsigned char atomic_uint_fast8_t;
-typedef _Atomic short atomic_int_fast16_t;
-typedef _Atomic unsigned short atomic_uint_fast16_t;
-typedef _Atomic int atomic_int_fast32_t;
-typedef _Atomic unsigned int atomic_uint_fast32_t;
-typedef _Atomic long atomic_int_fast64_t;
-typedef _Atomic unsigned long atomic_uint_fast64_t;
-typedef _Atomic long atomic_intptr_t;
-typedef _Atomic unsigned long atomic_uintptr_t;
-typedef _Atomic unsigned long atomic_size_t;
-typedef _Atomic long atomic_ptrdiff_t;
-typedef _Atomic long atomic_intmax_t;
-typedef _Atomic unsigned long atomic_uintmax_t;
-
-#endif
-
-#ifndef __STDBOOL_H
-#define __STDBOOL_H
-
-#define bool _Bool
-#define true 1
-#define false 0
-#define __bool_true_false_are_defined 1
-
-#endif
 
 #ifndef __STDDEF_H
 #define __STDDEF_H
@@ -224,108 +52,22 @@ typedef long ptrdiff_t;
 typedef unsigned int wchar_t;
 typedef long max_align_t;
 
-// #define offsetof(type, member) ((size_t)&(((type *)0)->member))
-
 #endif
-
-#ifndef __STDNORETURN_H
-#define __STDNORETURN_H
-
-#define noreturn _Noreturn
-
-#endif
-
-size_t strspn(const char *str, const char *accept) {
-    size_t accept_len = strlen(accept);
-
-    size_t i;
-    for (i = 0; i < strlen(str); i++) {
-        int match = 0;
-
-        for (int j = 0; j < accept_len; j++) {
-            if (str[i] == accept[j]) {
-                match = 1;
-                break;
-            }
-        }
-
-        if (!match) {
-            return i;
-        }
-    }
-    return i;
-}
-
-size_t strcspn(const char *str, const char *reject) {
-    size_t reject_len = strlen(reject);
-
-    for (size_t i = 0; i < strlen(str); i++) {
-        for (int j = 0; j < reject_len; j++) {
-            if (str[i] == reject[j]) {
-                return i;
-            }
-        }
-    }
-    return strlen(str);  // No chars were rejected: the whole string is allowed.
-}
-
-// Copied from glibc directly. See licenses/glibc.license.txt.
-char *strtok_r(char *s, const char *delim, char **save_ptr) {
-    char *end;
-
-    if (s == NULL) {
-        s = *save_ptr;
-    }
-
-    if (*s == '\0') {
-        *save_ptr = s;
-        return NULL;
-    }
-
-    /* Scan leading delimiters.  */
-    s += strspn(s, delim);
-    if (*s == '\0') {
-        *save_ptr = s;
-        return NULL;
-    }
-
-    /* Find the end of the token.  */
-    end = s + strcspn(s, delim);
-    if (*end == '\0') {
-        *save_ptr = end;
-        return s;
-    }
-
-    /* Terminate the token and make *SAVE_PTR point past it.  */
-    *end = '\0';
-    *save_ptr = end + 1;
-    return s;
-}
-
-char *strtok(char *s, const char *delim) {
-    static char *oldstr;
-    return strtok_r(s, delim, &oldstr);
-}
 
 char *strstr(char *haystack, const char *needle) {
     size_t hlen = strlen(haystack);
     size_t nlen = strlen(needle);
     // If needle is the empty string, the return value is always haystack itself.
-    if (nlen == 0) {
+    if (nlen == 0)
         return haystack;
-    }
-    if (hlen == 0) {
+    if (hlen == 0)
         return NULL;
-    }
-
     char needlechar0 = needle[0];
     for (size_t i = 0; i < hlen - nlen; i++) {
-        if (haystack[i] != needlechar0) {
+        if (haystack[i] != needlechar0)
             continue;
-        }
-        if (memcmp(&haystack[i], needle, nlen) == 0) {
+        if (memcmp(&haystack[i], needle, nlen) == 0)
             return &haystack[i];
-        }
     }
     return NULL;
 }
@@ -350,7 +92,6 @@ int strncasecmp(const char *s1, const char *s2, size_t n) {
     const unsigned char *u1 = (const unsigned char *)s1;
     const unsigned char *u2 = (const unsigned char *)s2;
     int result;
-
     for (int i = 0; i < n; i++) {
         result = tolower(s1[i]) - tolower(s2[i]);
         if (result)
@@ -535,36 +276,13 @@ char *strcat(char *dest, char *src) {
     return ret;
 }
 
-static int tmp_file_id = 0;
-
-// The mkstemp() function generates a unique temporary filename from template,
-// creates and opens the file, and returns an open file descriptor for the file.
-int mkstemp(char *template) {
-    time_t t = time(NULL);
-    pid_t pid = getpid();
-    pid_t tid = gettid();
-    char file_name[NAME_MAX] = {0};
-    strcpy(file_name, template);
-    strcat(file_name, "-");
-    strcat(file_name, itoa(t));
-    strcat(file_name, "-");
-    strcat(file_name, itoa(pid));
-    strcat(file_name, "-");
-    strcat(file_name, itoa(tid));
-    strcat(file_name, "-");
-    strcat(file_name, itoa(tmp_file_id++));
-    return open(file_name, O_CREAT | O_RDWR);
-}
-
-int execvp(const char *file, char *const argv[]) {
-    return execve(file, argv, environ);
-}
-
-#define NAME_MAX 255
-#define PATH_MAX 4096
-#define BUFSIZ 8192
-
 #endif
+
+// This is the limit on FAT32, which EFI uses, when Long File Names (LFN) is enabled.
+#define EFI_NAME_MAX 255
+// This is the limit on FAT32, which EFI uses.
+#define EFI_PATH_MAX 255
+#define BUFSIZ 8192
 
 // TODO: Why did I do this?
 static char *STDARG_H =
@@ -698,6 +416,8 @@ int ispunct(int c) {
 	return isgraph(c) && !isalnum(c);
 }
 
+#endif
+
 #ifndef noreturn
 # define noreturn __attribute__ ((__noreturn__))
 #endif
@@ -705,8 +425,6 @@ int ispunct(int c) {
 #define bool int
 #define true 1
 #define false 0
-
-#endif
 
 /* This is probably not a correct implementation somehow, but it is surely
 "close enough." */
@@ -7309,7 +7027,7 @@ char *search_include_paths(char *filename) {
     if (cached)
         return cached;
 
-    char *buf = malloc(PATH_MAX);
+    char *buf = malloc(EFI_PATH_MAX);
     if (buf == NULL) {
         errno = ENOMEM;
         die(1, __FUNCTION__);
@@ -7318,9 +7036,10 @@ char *search_include_paths(char *filename) {
     // Search a file from the include paths.
     for (int i = 0; i < include_paths.len; i++) {
         buf[0] = 0;  // This effectively resets the string to zero-length each time.
-        char *path = strncat(buf, include_paths.data[i], PATH_MAX - (NAME_MAX + 1 + 1));
+        // WARNING: This could exceed the bounds of a max file name length.
+        char *path = strcat(buf, include_paths.data[i]);
         path = strcat(path, "/");
-        path = strncat(path, filename, NAME_MAX);
+        path = strncat(path, filename, EFI_NAME_MAX);
         if (!file_exists(path))
             continue;
         hashmap_put(&cache, filename, path);
@@ -7331,7 +7050,7 @@ char *search_include_paths(char *filename) {
 }
 
 static char *search_include_next(char *filename) {
-    char *buf = malloc(PATH_MAX);
+    char *buf = malloc(EFI_PATH_MAX);
     if (buf == NULL) {
         errno = ENOMEM;
         die(1, __FUNCTION__);
@@ -7504,15 +7223,16 @@ static Token *preprocess2(Token *tok) {
             if (filename[0] != '/' && is_dquote) {
                 // TODO: Refactor into a "joinpath" function. I copied this code way too much.
                 // char *path = format("%s/%s", dirname(strdup(start->file->name)), filename);
-                char *buf = malloc(PATH_MAX);
+                char *buf = malloc(EFI_PATH_MAX);
                 if (buf == NULL) {
                     errno = ENOMEM;
                     die(1, __FUNCTION__);
                 }
                 buf[0] = 0;
-                char *path = strncat(buf, dirname(strdup(start->file->name)), PATH_MAX - (NAME_MAX + 1 + 1));
+                // WARNING: This _could_ exceed the bounds of a max file name length.
+                char *path = strcat(buf, dirname(strdup(start->file->name)));
                 path = strcat(path, "/");
-                path = strncat(path, filename, NAME_MAX);
+                path = strncat(path, filename, EFI_NAME_MAX);
                 if (file_exists(path)) {
                     tok = include_file(tok, path, start->next->next);
                     continue;
