@@ -252,6 +252,204 @@ char *strcat(char *dest, char *src) {
 
 #endif
 
+// 10 MB should be enough to build the TinyCC compiler, at least.
+#define OUTPUT_MAX_LEN 10000000
+static char output[OUTPUT_MAX_LEN] = { 0 };
+static char* wcursor = &output[0];
+
+// Each section is 4KB * 32 bytes so we get correct alignment.
+static char content_text[131072] = { 0 };
+static char content_data[131072] = { 0 };
+static char content_rdata[131072] = { 0 };
+static char content_bss[131072] = { 0 };
+
+static char* cursor_text = &content_text[0];
+static char* cursor_data = &content_data[0];
+static char* cursor_rdata = &content_rdata[0];
+static char* cursor_bss = &content_bss[0];
+
+const char DOS_HEADER[64] = {
+    0x4D, 0x5A,       // e_magic
+    0x90, 0x00,       // e_cblp
+    0x03, 0x00,       // e_cp
+    0x00, 0x00,       // e_crlc
+    0x04, 0x00,       // e_cparhdr
+    0x00, 0x00,       // e_minalloc
+    0xFF, 0xFF,       // e_maxalloc
+    0x00, 0x00,       // e_ss
+    0xB8, 0x00,       // e_sp
+    0x00, 0x00,       // e_csum
+    0x00, 0x00,       // e_ip
+    0x00, 0x00,       // e_cs
+    0x40, 0x00,       // e_lfarlc
+    0x00, 0x00,       // e_ovno
+    0x00, 0x00,       // e_res[0]
+    0x00, 0x00,       // e_res[1]
+    0x00, 0x00,       // e_res[2]
+    0x00, 0x00,       // e_res[3]
+    0x00, 0x00,       // e_oemid
+    0x00, 0x00,       // e_oeminfo
+    0x00, 0x00,       // e_res2[0]
+    0x00, 0x00,       // e_res2[1]
+    0x00, 0x00,       // e_res2[2]
+    0x00, 0x00,       // e_res2[3]
+    0x00, 0x00,       // e_res2[4]
+    0x00, 0x00,       // e_res2[5]
+    0x00, 0x00,       // e_res2[6]
+    0x00, 0x00,       // e_res2[7]
+    0x00, 0x00,       // e_res2[8]
+    0x00, 0x00,       // e_res2[9]
+    0x80, 0x00, 0, 0  // e_lfanew (0x80 = 128)
+};
+
+// It just prints "This program cannot be run in DOS mode" and exits.
+const char DOS_STUB_CODE[64] = {
+    0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD,
+    0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21, 0x54, 0x68,
+    0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72,
+    0x61, 0x6D, 0x20, 0x63, 0x61, 0x6E, 0x6E, 0x6F, 
+    0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E,
+    0x20, 0x69, 0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, 
+    0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
+    0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+static char COFF_HEADER[24] = {
+    0x50, 0x45, 0x00, 0x00, // mMagic
+    0x64, 0x86,             // mMachine: X86-64
+    0x04, 0x00,             // mNumberOfSections
+    0x00, 0x00, 0x00, 0x00, // mTimeDateStamp: There's no need to be honest here.
+    0x00, 0x00, 0x00, 0x00, // mPointerToSymbolTable: no symbols (PE files I've seen use it though!)
+    0x00, 0x00, 0x00, 0x00, // mNumberOfSymbols: 0 symbols
+    0xF0, 0x00,             // mSizeOfOptionalHeader
+    0x07, 0x02,             // mCharacteristics: The important thing is the 02, meaning "executable"
+};
+
+// Static because this will likely need to be modified.
+static char pe_optional_header[112] = {
+    0x0b, 0x02,                 // PE32+ (64 bit)
+    0x02,                       // mMajorLinkerVersion: I've seen this value, but IDK why.
+    0x22,                       // mMinorLinkerVersion: I've seen this value, but IDK why.
+    0, 0, 2, 0,                 // mSizeOfCode (Currently encodes 131072)
+    0, 0, 2, 0,                 // mSizeOfInitializedData (Currently encodes 131072)
+    0, 0, 2, 0,                 // mSizeOfUninitializedData (Currently encodes 131072)
+    0, 0x08, 0, 0,              // mAddressOfEntryPoint: Start of .text section. (+2048 from image base)
+    0, 0x08, 0, 0,              // mBaseOfCode: start of the .text section as well? (+2048 from image base)
+    0, 0x40, 0, 0, 0, 0, 0, 0,  // mImageBase
+    0, 0x10, 0, 0,              // mSectionAlignment: the default for this architecture of 4096
+    0, 0x02, 0, 0,              // mFileAlignment: the default of 512
+    0, 0,                       // mMajorOperatingSystemVersion
+    0, 0,                       // mMinorOperatingSystemVersion
+    0, 0,                       // mMajorImageVersion
+    0, 0,                       // mMinorImageVersion
+    0, 0,                       // mMajorSubsystemVersion
+    0, 0,                       // mMinorSubsystemVersion
+    0, 0, 0, 0,                 // mWin32VersionValue
+    0, 8, 8, 0,                 // mSizeOfImage (Currently encodes 526336 = (4 * 131072) + 2048)
+    0, 4, 0, 0,                 // mSizeOfHeaders (Currently encodes 1024)
+    0, 0, 0, 0,                 // mCheckSum: # TODO: I suspect this might matter after all.
+    0x0a, 0x00,                 // mSubsystem: EFI Application (10)
+    0, 0,                       // mDllCharacteristics
+    0, 0, 0, 0, 0, 0, 0, 0,     // mSizeOfStackReserve
+    0, 0, 0, 0, 0, 0, 0, 0,     // mSizeOfStackCommit
+    0, 0, 0, 0, 0, 0, 0, 0,     // mSizeOfHeapReserve
+    0, 0, 0, 0, 0, 0, 0, 0,     // mSizeOfHeapCommit
+    0, 0, 0, 0,                 // mLoaderFlags
+    0x10, 0, 0, 0               // mNumberOfRvaAndSizes (16 of them)
+};
+
+const char IMAGE_DATA_DIRECTORY[128] = {
+    0, 0, 0, 0, 0, 0, 0, 0,     // Export Directory [.edata (or where ever we found it)]
+    0, 0, 0, 0, 0, 0, 0, 0,     // Import Directory [parts of .idata]
+    0, 0, 0, 0, 0, 0, 0, 0,     // Resource Directory [.rsrc]
+    0, 0, 0, 0, 0, 0, 0, 0,     // Exception Directory [.pdata]
+    0, 0, 0, 0, 0, 0, 0, 0,     // Security Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // Base Relocation Directory [.reloc]
+    0, 0, 0, 0, 0, 0, 0, 0,     // Debug Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // Description Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // Special Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // Thread Storage Directory [.tls]
+    0, 0, 0, 0, 0, 0, 0, 0,     // Load Configuration Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // Bound Import Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // Import Address Table Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // Delay Import Directory
+    0, 0, 0, 0, 0, 0, 0, 0,     // CLR Runtime Header
+    0, 0, 0, 0, 0, 0, 0, 0,     // Reserved
+};
+
+typedef struct IMAGE_SECTION_HEADER_st { // size 40 bytes
+    char mName[8];
+    uint32_t mVirtualSize;
+    uint32_t mVirtualAddress;
+    uint32_t mSizeOfRawData;
+    uint32_t mPointerToRawData;
+    uint32_t mPointerToRelocations;
+    uint32_t mPointerToLinenumbers;
+    uint16_t mNumberOfRelocations;
+    uint16_t mNumberOfLinenumbers;
+    uint32_t mCharacteristics;
+} IMAGE_SECTION_HEADER;
+
+// Example:
+// 2e 74 65 78 74 00 00 00     # mName: ".text"
+// 00 10 00 00                 # mVirtualSize 
+// 00 30 00 00                 # mVirtualAddress
+// 00 04 00 00                 # mSizeOfRawData: hard-coded to 1024 bytes so we never need to change 
+// 00 04 00 00                 # mPointerToRawData
+// 00 00 00 00                 # mPointerToRelocations: I think this can just be zeroed in this example.
+// 00 00 00 00                 # mPointerToLinenumbers: Should be zeroed.
+// 00 00                       # mNumberOfRelocations: Should be zeroed.
+// 00 00                       # mNumberOfLinenumbers: Should be zeroed.
+// 20 00 00 60                 # mCharacteristics: IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+
+static IMAGE_SECTION_HEADER hdr_text;
+static IMAGE_SECTION_HEADER hdr_data;
+static IMAGE_SECTION_HEADER hdr_rdata;
+static IMAGE_SECTION_HEADER hdr_bss;
+
+// Writes the PE header to output.
+int pe_init() {
+    memcpy(wcursor, &DOS_HEADER[0], sizeof(DOS_HEADER));
+    wcursor += sizeof(DOS_HEADER);
+    memcpy(wcursor, &DOS_STUB_CODE[0], sizeof(DOS_STUB_CODE));
+    wcursor += sizeof(DOS_STUB_CODE);
+    memcpy(wcursor, &COFF_HEADER[0], sizeof(COFF_HEADER));
+    wcursor += sizeof(COFF_HEADER);
+
+    memcpy(wcursor, &pe_optional_header[0], sizeof(pe_optional_header));
+    wcursor += sizeof(pe_optional_header);
+    memcpy(wcursor, &IMAGE_DATA_DIRECTORY[0], sizeof(IMAGE_DATA_DIRECTORY));
+    wcursor += sizeof(IMAGE_DATA_DIRECTORY);
+    // TODO: Write all section headers, sequentially. (I think you can't really do this until you know the lengths.)
+    // TODO: Pad to 1024
+    // TODO: Write section contents until the end.
+    memcpy(&hdr_text.mName, ".text\0\0\0", 8);
+    memcpy(&hdr_data.mName, ".data\0\0\0", 8);
+    memcpy(&hdr_rdata.mName, ".rdata\0\0", 8);
+    memcpy(&hdr_bss.mName, ".bss\0\0\0\0", 8);
+
+//   0 .text         000006c0  00000000708c1000  00000000708c1000  00000400  2**4
+//                   CONTENTS, ALLOC, LOAD, READONLY, CODE
+//   1 .data         00000020  00000000708c2000  00000000708c2000  00000c00  2**4
+//                   CONTENTS, ALLOC, LOAD, DATA
+//   2 .rdata        00000060  00000000708c3000  00000000708c3000  00000e00  2**4
+//                   CONTENTS, ALLOC, LOAD, READONLY, DATA
+//   3 .pdata        00000024  00000000708c4000  00000000708c4000  00001000  2**2
+//                   CONTENTS, ALLOC, LOAD, READONLY, DATA
+//   4 .xdata        00000020  00000000708c5000  00000000708c5000  00001200  2**2
+//                   CONTENTS, ALLOC, LOAD, READONLY, DATA
+//   5 .bss          00000008  00000000708c6000  00000000708c6000  00000000  2**4
+//                   ALLOC
+//   6 .edata        000000c8  00000000708c7000  00000000708c7000  00001400  2**2
+//                   CONTENTS, ALLOC, LOAD, READONLY, DATA
+//   7 .idata
+
+}
+
+// int pe_write() {
+
+// }
+
 // This is the limit on FAT32, which EFI uses, when Long File Names (LFN) is enabled.
 #define EFI_NAME_MAX 255
 // This is the limit on FAT32, which EFI uses.

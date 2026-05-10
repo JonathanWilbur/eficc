@@ -12,15 +12,15 @@ This is based off of [ChibiCC](https://github.com/rui314/chibicc). Thank you,
 
 ## MVP To Do
 
-- [x] Figure out why the assembly instructions are so complicated
-- [x] Somehow only selectively define `__FUNCTION__` if used
-- [x] Write function names as ASCII in the assembly
-- [ ] Remove unneeded headers
-- [ ] Remove glibc and Linux-specific headers
+- [ ] Write PE32+ / EFI Executable instead of assembly (or maybe hex?)
+  - I think maybe just write the executable directly:
+    - 1. Doing this will likely simplify the code, particularly PIC
+    - 2. Hex is basically just for bootstrapping this compiler itself, and maybe
+         some other small programs like a hashing program, not TinyCC.
+    - 3. The point is to _not_ audit the output of this compiler.
 - [ ] Compile Itself
 - [ ] Compile straplibc
 - [ ] Compile TinyCC
-- [ ] Write PE32+ / EFI Executable instead of assembly (or maybe hex?)
 - [ ] Add debug symbols
 
 ## Notes
